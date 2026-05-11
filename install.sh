@@ -1,46 +1,74 @@
 #!/bin/bash
-# install.sh — one-command setup for agent-learns
+# install.sh — one command, everything set up
+# Clone this repo, run ./install.sh, done.
+
 set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+INSTALL_DIR="$HOME/.agent-learns"
 
 echo "🛡️  Agent-Learns Installer"
 echo ""
 
-# Check git-lrc
-if ! command -v git-lrc &>/dev/null; then
-  echo "📦 Installing git-lrc..."
-  curl -fsSL https://hexmos.com/lrc-install.sh | bash
+# Step 1: Check for Gemini key
+if [ ! -f "$HOME/.agent-learns/config" ]; then
+  echo "📝 No Gemini key found."
   echo ""
-  echo "🔑 Run 'git lrc setup' to configure your API keys, then re-run this installer."
+  echo "   Get a free key: https://aistudio.google.com/app/apikey"
+  echo "   Then: mkdir -p ~/.agent-learns"
+  echo "   Then: echo \"GEMINI_KEY=your-key\" > ~/.agent-learns/config"
+  echo ""
+  echo "   Re-run ./install.sh after."
   exit 0
 fi
 
-echo "✅ git-lrc found: $(git-lrc version 2>/dev/null || echo 'installed')"
+source "$HOME/.agent-learns/config"
+if [ -z "${GEMINI_KEY:-}" ]; then
+  echo "❌ GEMINI_KEY empty in ~/.agent-learns/config"
+  exit 1
+fi
 
-# Make scripts executable
-chmod +x "$(dirname "$0")"/*.sh 2>/dev/null || true
+echo "✅ Gemini key found"
 
-# Create patterns directory
-mkdir -p "$HOME/.agent-learns"
+# Step 2: Clone scripts if not already done
+if [ ! -f "$INSTALL_DIR/loop.sh" ]; then
+  echo "📁 Installing scripts..."
+  git clone https://github.com/Pu11en/agent-learns.git "$INSTALL_DIR" 2>/dev/null || \
+    cp -r "$SCRIPT_DIR" "$INSTALL_DIR"
+fi
+chmod +x "$INSTALL_DIR"/*.sh
 
-# Detect agent and install skill
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Step 3: Install Hermes skill
+installed=false
+
+if ls -d "$HOME"/.hermes/profiles/*/skills/ 2>/dev/null 1>&2; then
+  for skills_dir in "$HOME"/.hermes/profiles/*/skills/; do
+    dest="$skills_dir/software-development/agent-learns"
+    mkdir -p "$dest"
+    cp "$SCRIPT_DIR/SKILL.md" "$dest/SKILL.md"
+    echo "✅ Installed to $(basename $(dirname $(dirname $skills_dir))) profile"
+  done
+  installed=true
+fi
 
 if [ -d "$HOME/.hermes/skills" ]; then
-  cp "$SCRIPT_DIR/SKILL.md" "$HOME/.hermes/skills/agent-learns.md"
-  echo "✅ Installed Hermes Agent skill"
-elif [ -d "$HOME/.openclaw/skills" ]; then
-  cp "$SCRIPT_DIR/SKILL.md" "$HOME/.openclaw/skills/agent-learns.md"
-  echo "✅ Installed OpenClaw skill"
-elif [ -d "$HOME/.claude/skills" ]; then
-  cp "$SCRIPT_DIR/SKILL.md" "$HOME/.claude/skills/agent-learns.md"
-  echo "✅ Installed Claude Code skill"
-else
-  echo "ℹ️  No agent skills directory found. Copy SKILL.md manually to your agent's skills folder."
+  dest="$HOME/.hermes/skills/software-development/agent-learns"
+  mkdir -p "$dest"
+  cp "$SCRIPT_DIR/SKILL.md" "$dest/SKILL.md"
+  echo "✅ Installed to global Hermes skills"
+  installed=true
+fi
+
+if [ "$installed" = false ]; then
+  echo "ℹ️  No Hermes detected. SKILL.md at $SCRIPT_DIR/SKILL.md — copy manually."
 fi
 
 echo ""
-echo "🛡️  Agent-Learns is ready."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🛡️  Agent-Learns ready."
 echo ""
-echo "   Usage: ./loop.sh 5 \"your commit message\""
+echo "   Your agent now reviews its own code"
+echo "   using Gemini before every commit."
 echo ""
-echo "   Or just let your agent handle it — the skill is configured."
+echo "   Scripts: $INSTALL_DIR/"
+echo "   Config:  ~/.agent-learns/config"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

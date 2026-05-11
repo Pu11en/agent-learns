@@ -4,112 +4,79 @@
 
 ## What It Does
 
-AI agents write code fast. They also repeat the same mistakes. Missed null checks in async handlers. Hardcoded values in components. Missing error handling. Same patterns, commit after commit.
+AI agents write code fast. They also repeat mistakes. Same null checks missed. Same hardcoded values. Same missing error handling. Commit after commit.
 
-**Agent-Learns closes the loop.** It wraps [git-lrc](https://github.com/HexmosTech/git-lrc) so that every review result becomes feedback the agent learns from — not just a popup you have to read.
+**Agent-Learns closes the loop.** After every code change, Gemini reviews the diff. The agent reads the feedback, fixes issues, and re-runs until clean. Over time, the agent learns its own weak spots and stops repeating them.
 
-### The Loop
-
-```
-Agent writes code
-    ↓
-git-lrc reviews it          ← catches issues inline
-    ↓
-Agent reads review output   ← understands what went wrong
-    ↓
-Agent fixes issues           ← auto-patches
-    ↓
-Re-review until clean        ← gate stays up until clean
-    ↓
-Learn from results           ← patterns saved, fed back next time
-```
-
-After a few commits, the agent:
-- Knows its own weak spots
-- Avoids repeating the same mistakes
-- Needs fewer review iterations to pass
-- Eventually commits clean on first try
+No middleman. No signups. Just your Gemini key on your machine.
 
 ## Quick Start
 
 ```bash
-# 1. Install git-lrc (one time)
-curl -fsSL https://hexmos.com/lrc-install.sh | bash
-git lrc setup
+# 1. Get a free Gemini key
+#    https://aistudio.google.com/app/apikey
 
-# 2. Clone agent-learns
-git clone https://github.com/yourname/agent-learns.git
+# 2. Save it
+mkdir -p ~/.agent-learns
+echo "GEMINI_KEY=your-key-here" > ~/.agent-learns/config
+
+# 3. Install
+git clone https://github.com/Pu11en/agent-learns.git
 cd agent-learns
-chmod +x *.sh
-
-# 3. Wire into your agent
+./install.sh
 ```
 
-### For Hermes Agent / OpenClaw
+Your agent now reviews its own code before every commit.
 
-Copy `SKILL.md` into your agent's skills directory. When code generation completes, the agent automatically runs the review loop.
+## How It Works
 
-### Manual / Any Agent
-
-```bash
-# Agent generates code, then:
-./loop.sh 5 "add dark mode toggle"
+```
+Agent writes code
+    ↓
+loop.sh sends diff to Gemini API
+    ↓
+Gemini returns structured review (errors, warnings, info)
+    ↓
+If clean → commit with attestation
+If issues → agent reads feedback, fixes, re-runs
+    ↓
+learn.sh reads history, extracts patterns
+inject.sh feeds patterns back before next generation
 ```
 
-That's it. The loop handles review, fixes, learning, and commit.
+After a few commits, the agent knows its weaknesses and commits clean first try.
 
-## How It Feels
+## What You See (Almost Nothing)
 
-### First few commits
 ```
-You: add payment validation
-
-Agent: Got it. [writes code]
-       🔍 Reviewing... found 2 issues. Fixing.
-       🔍 Re-reviewing... clean. ✅
-       Learned: watch null checks in payment handlers.
+Agent: 🔍 Reviewing... found 2 issues. Fixing.
+       Re-reviewing... clean. ✅
 ```
 
-### After 10 commits
-```
-You: add subscription billing
+After a few weeks:
 
-Agent: On it. (I've been flagged for null checks here before — handling those.)
-       [writes code]
-       🔍 Clean. ✅
 ```
-
-### After a month
-```
-You: refactor billing system
 Agent: Done. ✅
 ```
 
-No popups. No reading. The agent absorbed its weaknesses.
+No popups. No reading. The agent absorbs the feedback.
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `loop.sh` | Main review loop — review → fix → re-review → commit |
-| `learn.sh` | Reads past reviews, finds patterns, saves summary |
-| `inject.sh` | Feeds learned patterns into agent context before generation |
-| `SKILL.md` | Hermes Agent / OpenClaw skill configuration |
+| `loop.sh` | Main engine — review → fix → re-review → commit |
+| `learn.sh` | Reads attestation history, extracts patterns |
+| `inject.sh` | Feeds patterns into agent context before generation |
+| `install.sh` | One-command setup |
+| `SKILL.md` | Hermes Agent / OpenClaw skill |
 
-## Prerequisites
+## Requirements
 
-- [git-lrc](https://github.com/HexmosTech/git-lrc) installed and set up
-- A git repository
-- An AI coding agent (Hermes, OpenClaw, Claude Code, etc.)
-
-## How It Works
-
-1. **learn.sh** scans `.git/lrc/attestations/` and git log for review history, extracts pattern summaries
-2. **inject.sh** feeds those patterns to the agent as silent context before code generation
-3. **loop.sh** orchestrates: generate → review → parse issues → fix → re-review → learn → commit
-
-The agent doesn't just pass review — it gets better at passing review over time.
+- Free Gemini API key (aistudio.google.com)
+- Git repository
+- Hermes Agent, OpenClaw, or any agent that runs shell commands
 
 ## License
 
-MIT — do whatever you want with it.
+MIT
